@@ -1,4 +1,3 @@
-// src/dpop.ts
 import { SignJWT, KeyLike } from 'jose';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -8,18 +7,23 @@ export async function generateDpopProof(
   privateKey: KeyLike,
   jwkPublic: object
 ): Promise<string> {
-  const jwt = await new SignJWT({
-    htu: url,
-    htm: method,
-    jti: uuidv4(),
-  })
-    .setProtectedHeader({
-      alg: 'ES256',
-      typ: 'dpop+jwt',
-      jwk: jwkPublic,
+  try {
+    const jwt = await new SignJWT({
+      htu: url,
+      htm: method,
+      jti: uuidv4(),
     })
-    .setIssuedAt()
-    .sign(privateKey);
+      .setProtectedHeader({
+        alg: 'ES256',
+        typ: 'dpop+jwt',
+        jwk: jwkPublic,
+      })
+      .setIssuedAt()
+      .sign(privateKey);
 
-  return jwt;
+    return jwt;
+  } catch (error: any) {
+    console.error('Error generating DPoP proof:', error);
+    throw new DPopProofError('Failed to generate DPoP proof');
+  }
 }
