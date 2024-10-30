@@ -1,33 +1,37 @@
-// src/oauth.ts
 import axios from 'axios';
 import { generateCodeVerifier, generateCodeChallenge } from './pkce';
 import { generateDpopProof } from './dpop';
+import { RateLimitExceededError } from './errors';
+import { JWK, TokenResponse, UserProfile, OAuthParResponse } from './types';
+import { checkRateLimit } from './rateLimiter';
+import { isValidUrl } from './security';
+import { OAuthClientError, OAuthAuthorizationError, OAuthServerError, OAuthTokenRequestError } from './errors';
 
 export class BlueskyOAuthClient {
   private clientId: string;
   private redirectUri: string;
   private scopes: string[];
-  private jwkPrivate: any;
-  private jwkPublic: any;
+  private jwkPrivate: JWK;
+  private jwkPublic: JWK;
 
   constructor(options: {
     clientId: string;
     redirectUri: string;
     scopes?: string[];
-    jwkPrivate: any;
-    jwkPublic: any;
+    jwkPrivate: JWK;
+    jwkPublic: JWK;
   }) {
     if (!options.clientId) {
-      throw new Error('clientId is required and should be the URL to client-metadata.json');
+      throw new OAuthClientError('clientId is required and should be the URL to client-metadata.json');
     }
     if (!options.redirectUri) {
-      throw new Error('redirectUri is required');
+      throw new OAuthClientError('redirectUri is required');
     }
     if (!options.jwkPrivate) {
-      throw new Error('jwkPrivate is required');
+      throw new OAuthClientError('jwkPrivate is required');
     }
     if (!options.jwkPublic) {
-      throw new Error('jwkPublic is required');
+      throw new OAuthClientError('jwkPublic is required');
     }
 
     this.clientId = options.clientId;
@@ -40,13 +44,13 @@ export class BlueskyOAuthClient {
   /**
    * Generates the authorization URL and returns the code verifier.
    */
-  async getAuthorizationUrl(): Promise<{ url: string; codeVerifier: string }> {
+  async getAuthorizationUrl(userKey: string): Promise<{ url: string; codeVerifier: string }> {
     const rateLimitOptions = { maxRequests: 10, windowMs: 60 * 1000 }; // 10 requests per minute
 
     // Check rate limit
     const underLimit = checkRateLimit(userKey, rateLimitOptions);
     if (!underLimit) {
-      throw new Error('Rate limit exceeded. Please try again later.');
+      throw new RateLimitExceededError('Rate limit exceeded. Please try again later.');
     }
     
     const codeVerifier = generateCodeVerifier();
@@ -66,7 +70,7 @@ export class BlueskyOAuthClient {
 
     const isParValid = await isValidUrl(parEndpoint);
     if (!isParValid) {
-      throw new Error('Invalid PAR endpoint URL.');
+      throw new OAuthAuthorizationError('Invalid PAR endpoint URL.');
     }
 
     const data = {
@@ -84,14 +88,14 @@ export class BlueskyOAuthClient {
       });
       return response.data.request_uri;
     } catch (error: any) {
-      throw new Error(`Failed to push authorization request: ${error.message}`);
+      throw new OAuthServerError(`Failed to push authorization request: ${error.message}`);
     }
   }
 
   /**
    * Handles the OAuth callback by exchanging the authorization code for tokens.
    */
-  async handleCallback(code: string, codeVerifier: string): Promise<any> {
+  async handleCallback(code: string, codeVerifier: string): Promise<TokenResponse> {
     const tokenEndpoint = 'https://bsky.social/oauth/token';
     const dpopProof = await generateDpopProof(
       'POST',
@@ -115,7 +119,7 @@ export class BlueskyOAuthClient {
       });
       return response.data;
     } catch (error: any) {
-      throw new Error(`Failed to exchange token: ${error.message}`);
+      throw new OAuthTokenRequestError(`Failed to exchange token: ${error.message}`);
     }
   }
 
@@ -127,7 +131,7 @@ export class BlueskyOAuthClient {
     url: string,
     accessToken: string,
     data?: any
-  ): Promise<any> {
+  ): Promise<UserProfile> {
     const dpopProof = await generateDpopProof(
       method,
       url,
@@ -149,7 +153,7 @@ export class BlueskyOAuthClient {
       });
       return response.data;
     } catch (error: any) {
-      throw new Error(`Failed to make authenticated request: ${error.message}`);
+      throw new OAuthServerError(`Failed to make authenticated request: ${error.message}`);
     }
   }
 }
