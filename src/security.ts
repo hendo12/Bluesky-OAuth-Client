@@ -1,8 +1,9 @@
-// src/security.ts
 import dns from 'dns/promises';
 import { isIP } from 'net';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { RateLimitOptions } from './types';
+import { checkRateLimit } from './rateLimiter';
 
 const ALLOWED_HOSTS = ['bsky.social'];
 
@@ -140,10 +141,7 @@ export function verifyCsrfToken(token: string, sessionToken: string): boolean {
  * @param options - Rate limiting options.
  * @returns True if under the limit, false if exceeded.
  */
-interface RateLimitOptions {
-  maxRequests: number;
-  windowMs: number; // Time window in milliseconds
-}
+
 
 const rateLimitStore: { [key: string]: { count: number; firstRequest: number } } = {};
 
