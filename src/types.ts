@@ -18,12 +18,24 @@ export interface OAuthClientOptions {
   jwkPublic: JWK;
 }
 
-export interface TokenResponse {
+export interface TokenResponse {to
   access_token: string;
   refresh_token?: string;
   expires_in?: number;
   token_type: string;
   scope?: string;
+}
+
+export interface TokenData {
+  accessToken: string;
+  refreshToken: string | null;
+  tokenExpiresAt: number | null;
+}
+
+export interface TokenStorage {
+  saveTokens(userId: string, tokenData: TokenData): Promise<void>;
+  loadTokens(userId: string): Promise<TokenData | null>;
+  deleteTokens(userId: string): Promise<void>;
 }
 
 export interface UserProfile {
@@ -44,14 +56,4 @@ export interface ClientMetadata {
   application_type?: string;
   logo_uri?: string;
   policy_uri?: string;
-}
-
-export interface RateLimitOptions {
-  maxRequests: number;
-  windowMs: number; // Time window in milliseconds
-}
-
-export interface OAuthParResponse {
-	request_uri: string;
-	expires_in: number;
 }

@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@types/axios": "^0.9.36",
     "@types/jest": "^29.5.14",
     "jest": "^29.7.0",
     "react-app-polyfill": "^3.0.0",
